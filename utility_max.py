@@ -24,7 +24,7 @@ print(R)
 S0 = 1.0
 r = 0.005
 mu = 0.01
-sigma = 0.05
+sigma = 0.06
 y0 = S0
 
 N = 500
@@ -85,17 +85,17 @@ def g(x, eta, xrf):
     y = B[0, -1]*(y0 + tf.reduce_sum(pi/B3*((mu-r)*dt + sigma*dW3), axis = -1))
     return -tf.reduce_mean(u(y, eta, xrf), axis = -1)
 
+xrf = np.random.exponential(size = [K, 1, 1], scale = 0.33)
 eta = np.random.uniform(size = [K, 1, 1], low = 0.25, high = 0.75)
 print(np.sum(eta == 1.0))
-xrf = np.concatenate([np.zeros([Ktrain, 1, 1]), np.random.exponential(size = [Ktest, 1, 1], scale = 1.0)], axis = 0)
 
 L = 10
 M = 40
 gamma = 0.5
 
 ep = 5000
-eval_every = 125
-lr = 2e-6
+eval_every = 5
+lr = 5e-5
 batch_size = 100
 nr_batch = int(Ktrain/batch_size)
 print_details = True
@@ -137,6 +137,7 @@ for k in range(K):
     xTrue[k] = np.fmax((mu-r)/(sigma**2*eta[k]*H[:, :-1])*(y0-xrf[k]/B[:, -2:-1])*np.power(Z[:, :-1], 1.0-1.0/eta[k])/np.exp(0.5*lam**2*(1-eta[k])/eta[k]**2*t1[:, :-1]), 0.0)
     
 res_loss = np.nan*np.ones([ep, 2])
+ind_plot = np.random.choice(np.arange(Ktest), 2)
 for i in range(ep):
     begin = time.time()
     np.random.shuffle(ind_train)
@@ -168,10 +169,10 @@ for i in range(ep):
             plt.legend(loc = "upper right")
             plt.show()
             
-            plt.plot(tt[:-1], xTrue[Ktrain, 0], "-k", label = "True")
-            plt.plot(tt[:-1], pi1[0, 0], ":r", label = "Predict")
-            plt.plot(tt[:-1], xTrue[Ktrain+2, 0], "-k")
-            plt.plot(tt[:-1], pi1[2, 0], ":r")
+            plt.plot(tt[:-1], xTrue[Ktrain+ind_plot[0], 0], "-k", label = "True")
+            plt.plot(tt[:-1], pi1[ind_plot[0], 0], ":r", label = "Predict")
+            plt.plot(tt[:-1], xTrue[Ktrain+ind_plot[1], 0], "-k")
+            plt.plot(tt[:-1], pi1[ind_plot[1], 0], ":r")
             plt.xlabel("$t$")
             plt.ylabel("$x_t(\\omega)$")
             plt.legend(loc = "upper right")
@@ -190,22 +191,13 @@ plt.legend(loc = "upper right")
 plt.savefig("utility_max_loss.png", bbox_inches = 'tight', dpi = 500) 
 plt.close(fig)
 
-ind = np.argsort(np.mean(np.square(xTrue[Ktrain:, 0] - pi1[:, 0]), axis = -1))
-for i in range(Ktest):
-    if np.max(xTrue[ind[i], 0]) > 0.0:
-        ind1 = ind[i]
-        
-for j in range(i+1, Ktest):
-    if np.max(xTrue[ind[j], 0]) > 0.0:
-        ind2 = ind[j]
-
 fig = plt.figure()
-plt.plot(tt[:-1], xTrue[Ktrain+ind1, 0], "-k", label = "True")
-plt.plot(tt[:-1], pi1[ind1, 0], ":r", label = "Predict")
-plt.plot(tt[:-1], xTrue[Ktrain+ind2, 0], "-k")
-plt.plot(tt[:-1], pi1[ind2, 0], ":r")
+plt.plot(tt[:-1], xTrue[Ktrain+ind_plot[0], 0], "-k", label = "True")
+plt.plot(tt[:-1], pi1[ind_plot[0], 0], ":r", label = "Predict")
+plt.plot(tt[:-1], xTrue[Ktrain+ind_plot[1], 0], "-k")
+plt.plot(tt[:-1], pi1[ind_plot[1], 0], ":r")
 plt.xlabel("$t$")
 plt.ylabel("$x_t(\\omega)$")
 plt.legend(loc = "upper right")
-plt.savefig("utility_max_test.png", bbox_inches = 'tight', dpi = 500) 
+plt.savefig("utility_max_test_" + str(i) + ".png", bbox_inches = 'tight', dpi = 500) 
 plt.close(fig)
