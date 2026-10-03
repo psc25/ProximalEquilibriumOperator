@@ -48,17 +48,17 @@ K = 500
 val_split = 0.2
 Ktrain = int(K*(1.0-val_split))
 Ktest = K-Ktrain
-def g(x, nu):
+def g(x, sigma):
     xj1 = tf.reduce_sum(tf.expand_dims(x, axis = -1)*ej1, axis = 1)
-    return 0.5*nu*tf.reduce_mean(tf.square(xj1), axis = -1)
+    return 0.25*tf.square(sigma)*tf.reduce_mean(tf.square(xj1), axis = -1)
 
 if new_par:
-    nu1 = 0.01 + 0.39*np.random.beta(a = 1.0, b = 2.0, size = K)
-    np.savetxt("nonlinear_pde/nu.csv", nu1)
-    nu = np.reshape(nu1, [-1, 1])
+    sigma1 = np.sqrt(2.0*(0.01 + 0.39*np.random.beta(a = 1.0, b = 2.0, size = K)))
+    np.savetxt("nonlinear_pde/sigma.csv", sigma1)
+    sigma = np.reshape(sigma1, [-1, 1])
 else:
-    nu1 = np.loadtxt("nonlinear_pde/nu.csv", dtype = np.float32)
-    nu = np.reshape(nu1, [-1, 1])
+    sigma1 = np.loadtxt("nonlinear_pde/sigma.csv", dtype = np.float32)
+    sigma = np.reshape(sigma1, [-1, 1])
 
 L = 10
 M = 20
@@ -74,14 +74,14 @@ ind_test = np.arange(Ktrain, K)
 init = tf.random_normal_initializer(stddev = 0.01)
 
 xl = tf.random.normal(shape = [1, R, 1], stddev = 0.01)
-nu_tf = tf.placeholder(shape = (None, 1), dtype = tf.float32)
+sigma_tf = tf.placeholder(shape = (None, 1), dtype = tf.float32)
 yT_tf = tf.placeholder(shape = (None, N), dtype = tf.float32)
 for l in range(1, L+1):
     Al = tf.Variable(initial_value = init(shape = (1, R, R)), dtype = tf.float32)
     Bl = tf.Variable(initial_value = init(shape = (1, R, M)), dtype = tf.float32)
     xlm = tf.Variable(initial_value = init(shape = (1, R, M)), dtype = tf.float32)
     bl = tf.Variable(initial_value = init(shape = (1, R, 1)), dtype = tf.float32)
-    gout = g(xl + xlm, nu_tf)
+    gout = g(xl + xlm, sigma_tf)
     hd = tf.matmul(Al, xl) + tf.matmul(Bl, tf.expand_dims(gout, axis = -1)) + bl
     xl = gamma*xl + (1.0-gamma)*prox_f(hd)
     
@@ -100,10 +100,9 @@ sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
 res_loss = np.nan*np.ones([ep, 2])
-ind_plot = np.random.choice(np.arange(Ktest), 2)
 for i in range(ep):
     begin = time.time()
-    feed_dict = {nu_tf: nu[ind_train], yT_tf: yT[ind_train]}
+    feed_dict = {sigma_tf: sigma[ind_train], yT_tf: yT[ind_train]}
     _, res_loss[i, 0] = sess.run([train_op, loss], feed_dict)
     end = time.time()
     if print_details:
@@ -111,7 +110,7 @@ for i in range(ep):
         
     if i == 0 or (i+1) % eval_every == 0:
         begin = time.time()
-        feed_dict = {nu_tf: nu[ind_test], yT_tf: yT[ind_test]}
+        feed_dict = {sigma_tf: sigma[ind_test], yT_tf: yT[ind_test]}
         res_loss[i, 1], y1, g1 = sess.run([loss, yP, gout], feed_dict)
         end = time.time()
         if print_details:            
@@ -126,10 +125,10 @@ for i in range(ep):
             plt.legend(loc = "upper right")
             plt.show()
             
-            plt.plot(Z, yT[Ktest+ind_plot[0]], "-k", label = "True")
-            plt.plot(Z, yT[Ktest+ind_plot[1]], "-k")
-            plt.plot(Z, y1[ind_plot[0]], ":r", label = "Predict")
-            plt.plot(Z, y1[ind_plot[1]], ":r")
+            plt.plot(Z, yT[Ktest], "-k", label = "True")
+            plt.plot(Z, yT[Ktest+1], "-k")
+            plt.plot(Z, y1[0], ":r", label = "Predict")
+            plt.plot(Z, y1[1], ":r")
             plt.xlabel("$u$")
             plt.ylabel("$y(T,u)$")
             plt.legend(loc = "upper right")
@@ -146,10 +145,10 @@ plt.savefig("nonlinear_pde_loss.png", bbox_inches = 'tight', dpi = 500)
 plt.close(fig)
 
 fig = plt.figure()
-plt.plot(Z, yT[Ktest+ind_plot[0]], "-k", label = "True")
-plt.plot(Z, yT[Ktest+ind_plot[1]], "-k")
-plt.plot(Z, y1[ind_plot[0]], ":r", label = "Predict")
-plt.plot(Z, y1[ind_plot[1]], ":r")
+plt.plot(Z, yT[Ktest], "-k", label = "True")
+plt.plot(Z, yT[Ktest+1], "-k")
+plt.plot(Z, y1[0], ":r", label = "Predict")
+plt.plot(Z, y1[1], ":r")
 plt.xlabel("$u$")
 plt.ylabel("$y(T,u)$")
 plt.legend(loc = "upper right")
